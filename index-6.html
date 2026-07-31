@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotação de Medicamentos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --primary:#1c2e4a;
+    --primary-light:#2c4468;
+    --accent:#3d6ba3;
+    --success:#1e8a5f;
+    --success-bg:#e6f4ee;
+    --warning:#b3690a;
+    --warning-bg:#fdf1e2;
+    --danger:#b3261e;
+    --danger-bg:#fbe9e8;
+    --bg:#f5f6f8;
+    --surface:#ffffff;
+    --border:#dde1e7;
+    --text:#1c232f;
+    --text-muted:#5b6472;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    background:var(--primary);
+    color:#fff;
+    padding:18px 20px;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+    position:sticky;
+    top:0;
+    z-index:50;
+  }
+  header h1{
+    margin:0;
+    font-size:1.25rem;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  header p{
+    margin:2px 0 0;
+    font-size:.8rem;
+    color:#c3cede;
+  }
+
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:12px 20px;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:66px;
+    z-index:40;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    padding:9px 14px;
+    border-radius:var(--radius);
+    font-size:.85rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s, border-color .15s;
+    white-space:nowrap;
+  }
+  .btn:hover{background:#f0f2f5;}
+  .btn-primary{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .btn-primary:hover{background:var(--primary-light);}
+  .btn-danger{color:var(--danger); border-color:var(--danger);}
+  .btn-danger:hover{background:var(--danger-bg);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  input[type="file"]{display:none;}
+
+  .status-bar{
+    padding:8px 20px;
+    font-size:.8rem;
+    color:var(--text-muted);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+  }
+  .status-bar b{color:var(--text);}
+
+  .tabs{
+    display:flex;
+    overflow-x:auto;
+    background:var(--surface);
+    border-bottom:2px solid var(--border);
+    padding:0 20px;
+    gap:2px;
+  }
+  .tab{
+    padding:12px 18px;
+    font-size:.85rem;
+    font-weight:600;
+    color:var(--text-muted);
+    cursor:pointer;
+    border-bottom:3px solid transparent;
+    white-space:nowrap;
+    transition:color .15s;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--primary); border-bottom-color:var(--primary);}
+  .tab .count{
+    display:inline-block;
+    margin-left:6px;
+    background:var(--bg);
+    color:var(--text-muted);
+    font-size:.72rem;
+    padding:1px 6px;
+    border-radius:10px;
+  }
+  .tab.active .count{background:var(--primary); color:#fff;}
+
+  main{padding:16px 20px 60px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--text-muted);
+  }
+  .empty-state h3{color:var(--text); margin-bottom:6px;}
+  .empty-state svg{opacity:.35; margin-bottom:12px;}
+
+  .controls-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:14px;
+    align-items:center;
+  }
+  .search-box{
+    flex:1;
+    min-width:200px;
+    position:relative;
+  }
+  .search-box input{
+    width:100%;
+    padding:9px 12px 9px 32px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    font-size:.85rem;
+    background:var(--surface);
+  }
+  .search-box::before{
+    content:"🔍";
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:.8rem;
+    opacity:.6;
+  }
+  select{
+    padding:9px 12px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    font-size:.85rem;
+    background:var(--surface);
+    color:var(--text);
+    cursor:pointer;
+  }
+  .toggle-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 12px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    font-size:.82rem;
+    cursor:pointer;
+    user-select:none;
+    background:var(--surface);
+  }
+  .toggle-chip input{margin:0;}
+  .toggle-chip.active{background:var(--primary); color:#fff; border-color:var(--primary);}
+
+  .summary-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .card .label{font-size:.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px;}
+  .card .value{font-size:1.3rem; font-weight:700; margin-top:2px;}
+  .card.highlight{border-color:var(--primary); background:#f0f4fa;}
+
+  .table-wrap{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  table{width:100%; border-collapse:collapse; font-size:.83rem;}
+  thead th{
+    background:var(--primary);
+    color:#fff;
+    text-align:left;
+    padding:10px 12px;
+    font-weight:600;
+    font-size:.75rem;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    white-space:nowrap;
+  }
+  tbody tr{border-bottom:1px solid var(--border);}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  tbody tr:hover{background:#eef2f7;}
+  tbody td{padding:10px 12px; vertical-align:middle;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+  td.mono{font-family:'Consolas', monospace; font-size:.8rem; color:var(--text-muted);}
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:3px 9px;
+    border-radius:20px;
+    font-size:.72rem;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .badge-success{background:var(--success-bg); color:var(--success);}
+  .badge-warning{background:var(--warning-bg); color:var(--warning);}
+  .badge-danger{background:var(--danger-bg); color:var(--danger);}
+  .badge-neutral{background:var(--bg); color:var(--text-muted);}
+
+  .foot-total{
+    padding:12px 16px;
+    font-size:.85rem;
+    font-weight:700;
+    background:#f0f4fa;
+    border-top:1px solid var(--border);
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .alert{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    background:var(--warning-bg);
+    border:1px solid #f0d4a8;
+    color:#7a4a08;
+    padding:12px 14px;
+    border-radius:var(--radius);
+    font-size:.82rem;
+    margin-bottom:14px;
+  }
+  .alert b{display:block; margin-bottom:2px;}
+  .alert .close-alert{
+    margin-left:auto;
+    cursor:pointer;
+    font-weight:700;
+    opacity:.6;
+    background:none;
+    border:none;
+    font-size:1rem;
+    color:inherit;
+  }
+
+  .breakdown{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .breakdown-chip{
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:6px 12px;
+    font-size:.78rem;
+  }
+  .breakdown-chip b{color:var(--primary);}
+
+  footer.card-hint{
+    text-align:center;
+    color:var(--text-muted);
+    font-size:.72rem;
+    padding:20px;
+  }
+
+  /* Modal */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.45);
+    z-index:100;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:#fff;
+    border-radius:var(--radius);
+    max-width:420px;
+    width:100%;
+    padding:22px;
+  }
+  .modal h3{margin-top:0;}
+  .modal .modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:18px;}
+
+  @media (max-width: 720px){
+    .table-wrap{overflow-x:auto;}
+    table{min-width:640px;}
+    .toolbar{position:static;}
+    .tabs{top:0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💊 Cotação de Medicamentos</h1>
+  <p>Importe cotações e pedidos para encontrar o melhor fornecedor de cada item</p>
+</header>
+
+<div class="toolbar">
+  <label class="btn btn-primary" for="fileCotacao">📤 Importar Cotação</label>
+  <input type="file" id="fileCotacao" accept=".xlsx,.xls">
+  <label class="btn btn-primary" for="filePedido">📋 Importar Pedido</label>
+  <input type="file" id="filePedido" accept=".xlsx,.xls">
+  <button class="btn" id="btnExport" disabled>💾 Exportar aba atual</button>
+  <button class="btn btn-danger" id="btnClear">🗑️ Limpar dados</button>
+</div>
+
+<div class="status-bar" id="statusBar">Nenhum dado importado ainda. Comece importando uma planilha de cotação.</div>
+
+<div class="tabs" id="tabs"></div>
+
+<main id="main"></main>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3>Confirmar limpeza</h3>
+    <p>Isso vai apagar todos os dados importados (cotação e pedido). Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn" id="cancelClear">Cancelar</button>
+      <button class="btn btn-danger" id="confirmClear">Sim, limpar tudo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   ESTADO GLOBAL
+   ========================================================== */
+const state = {
+  cotacoes: {},       // { ean: { ean, nome, ofertas: [{fornecedor, quantidade, precoUnitario, precoTotal}] } }
+  fornecedores: [],   // lista de nomes de fornecedores
+  pedido: [],         // [{ean, nome, quantidadePedida, fornecedorPreferido}]
+  resultadoPedido: [],// calculado
+  activeTab: null,
+  warnings: []
+};
+
+const STORAGE_KEY = 'cotacao_app_state_v1';
+
+/* ==========================================================
+   UTIL
+   ========================================================== */
+function normalizeHeader(h){
+  return String(h||'').trim().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // remove acentos
+}
+
+function toNumber(v){
+  if(v===undefined||v===null||v==='') return null;
+  if(typeof v==='number') return v;
+  let s = String(v).trim().replace(/[^\d,.-]/g,'');
+  if(s.includes(',') && s.includes('.')){
+    // formato brasileiro 1.234,56
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if(s.includes(',')){
+    s = s.replace(',','.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function formatBRL(v){
+  if(v===null||v===undefined||isNaN(v)) return '—';
+  return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+}
+
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      cotacoes: state.cotacoes,
+      fornecedores: state.fornecedores,
+      pedido: state.pedido
+    }));
+  }catch(e){ console.warn('Não foi possível salvar no localStorage', e); }
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    state.cotacoes = data.cotacoes || {};
+    state.fornecedores = data.fornecedores || [];
+    state.pedido = data.pedido || [];
+  }catch(e){ console.warn('Não foi possível carregar do localStorage', e); }
+}
+
+/* ==========================================================
+   LEITURA DE EXCEL
+   ========================================================== */
+function readExcelFile(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+        resolve(rows);
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function findKey(row, candidates){
+  const keys = Object.keys(row);
+  for(const k of keys){
+    const nk = normalizeHeader(k);
+    if(candidates.includes(nk)) return k;
+  }
+  return null;
+}
+
+/* ==========================================================
+   IMPORTAÇÃO: COTAÇÃO
+   ========================================================== */
+async function handleImportCotacao(file){
+  let rows;
+  try{
+    rows = await readExcelFile(file);
+  }catch(err){
+    alert('Não foi possível ler o arquivo. Verifique se é um .xlsx válido.');
+    return;
+  }
+  if(!rows.length){
+    alert('A planilha de cotação está vazia.');
+    return;
+  }
+
+  const sample = rows[0];
+  const kEan = findKey(sample, ['EAN']);
+  const kNome = findKey(sample, ['NOME', 'MEDICAMENTO', 'PRODUTO', 'NOME DO PRODUTO']);
+  const kFornecedor = findKey(sample, ['FORNECEDOR']);
+  const kQtd = findKey(sample, ['QUANTIDADE', 'QTD', 'QTDE']);
+  const kPrecoUnit = findKey(sample, ['PRECO UNITARIO', 'PRECO_UNITARIO', 'PRECO UNIT', 'VALOR UNITARIO']);
+  const kPrecoTotal = findKey(sample, ['PRECO TOTAL', 'PRECO_TOTAL', 'VALOR TOTAL']);
+
+  const missing = [];
+  if(!kEan) missing.push('EAN');
+  if(!kNome) missing.push('NOME');
+  if(!kFornecedor) missing.push('FORNECEDOR');
+  if(!kQtd) missing.push('QUANTIDADE');
+  if(!kPrecoUnit && !kPrecoTotal) missing.push('PREÇO (unitário ou total)');
+
+  if(missing.length){
+    alert('A planilha de cotação está sem as colunas obrigatórias: ' + missing.join(', '));
+    return;
+  }
+
+  let novasOfertas = 0;
+  let duplicatasIgnoradas = 0;
+  const fornecedoresSet = new Set(state.fornecedores);
+
+  rows.forEach(row => {
+    const ean = String(row[kEan]).trim();
+    const nome = String(row[kNome]).trim();
+    const fornecedor = String(row[kFornecedor]).trim();
+    const quantidade = toNumber(row[kQtd]);
+    if(!ean || !nome || !fornecedor || !quantidade){
+      return; // linha inválida, ignora silenciosamente
+    }
+
+    let precoUnitario = kPrecoUnit ? toNumber(row[kPrecoUnit]) : null;
+    let precoTotal = kPrecoTotal ? toNumber(row[kPrecoTotal]) : null;
+
+    if(precoTotal === null && precoUnitario !== null){
+      precoTotal = precoUnitario * quantidade;
+    } else if(precoUnitario === null && precoTotal !== null){
+      precoUnitario = precoTotal / quantidade;
+    }
+
+    if(precoTotal === null || precoUnitario === null){
+      return; // sem preço utilizável
+    }
+
+    if(!state.cotacoes[ean]){
+      state.cotacoes[ean] = { ean, nome, ofertas: [] };
+    }
+
+    const existente = state.cotacoes[ean].ofertas.find(o => o.fornecedor === fornecedor);
+    if(existente){
+      duplicatasIgnoradas++;
+      return;
+    }
+
+    state.cotacoes[ean].ofertas.push({ fornecedor, quantidade, precoUnitario, precoTotal });
+    novasOfertas++;
+    fornecedoresSet.add(fornecedor);
+  });
+
+  state.fornecedores = Array.from(fornecedoresSet).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+  state.warnings = [];
+  if(duplicatasIgnoradas > 0){
+    state.warnings.push(`${duplicatasIgnoradas} linha(s) duplicada(s) (mesmo EAN + fornecedor) foram ignoradas na cotação.`);
+  }
+
+  recalcularResultadoPedido();
+  saveState();
+  renderAll();
+
+  alert(`Cotação importada: ${novasOfertas} ofertas processadas de ${state.fornecedores.length} fornecedor(es).`);
+}
+
+/* ==========================================================
+   IMPORTAÇÃO: PEDIDO
+   ========================================================== */
+async function handleImportPedido(file){
+  let rows;
+  try{
+    rows = await readExcelFile(file);
+  }catch(err){
+    alert('Não foi possível ler o arquivo. Verifique se é um .xlsx válido.');
+    return;
+  }
+  if(!rows.length){
+    alert('A planilha de pedido está vazia.');
+    return;
+  }
+
+  const sample = rows[0];
+  const kEan = findKey(sample, ['EAN', 'CODIFICACAO', 'CODIGO', 'CÓDIGO', 'GTIN']);
+  const kNome = findKey(sample, ['NOME', 'MEDICAMENTO', 'PRODUTO', 'NOME DO PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']);
+  const kQtd = findKey(sample, ['QUANTIDADE', 'QTD', 'QTDE']);
+  const kFornPref = findKey(sample, ['FORNECEDOR PREFERIDO', 'FORNECEDOR_PREFERIDO', 'FORNECEDOR PREF', 'FORNECEDOR', 'FABRICANTE', 'MARCA']);
+
+  const missing = [];
+  if(!kEan) missing.push('EAN');
+  if(!kNome) missing.push('NOME');
+  if(!kQtd) missing.push('QUANTIDADE');
+
+  if(missing.length){
+    alert('A planilha de pedido está sem as colunas obrigatórias: ' + missing.join(', '));
+    return;
+  }
+
+  const novoPedido = [];
+  let duplicatas = 0;
+  const seen = new Set();
+
+  rows.forEach(row => {
+    const ean = String(row[kEan]).trim();
+    const nome = String(row[kNome]).trim();
+    const quantidadePedida = toNumber(row[kQtd]);
+    const fornecedorPreferidoRaw = kFornPref ? String(row[kFornPref]||'').trim() : '';
+    const fornecedorPreferido = fornecedorPreferidoRaw || null;
+
+    if(!ean || !nome || !quantidadePedida) return;
+
+    const chave = ean + '|' + (fornecedorPreferido||'');
+    if(seen.has(chave)){
+      duplicatas++;
+      return;
+    }
+    seen.add(chave);
+
+    novoPedido.push({ ean, nome, quantidadePedida, fornecedorPreferido });
+  });
+
+  state.pedido = novoPedido;
+
+  if(duplicatas > 0){
+    state.warnings.push(`${duplicatas} linha(s) duplicada(s) no pedido foram ignoradas.`);
+  }
+
+  recalcularResultadoPedido();
+  saveState();
+  renderAll();
+
+  alert(`Pedido importado: ${novoPedido.length} item(ns).`);
+}
+
+/* ==========================================================
+   MATCHING: PEDIDO x COTAÇÃO
+   ========================================================== */
+function recalcularResultadoPedido(){
+  state.resultadoPedido = state.pedido.map(item => {
+    const cot = state.cotacoes[item.ean];
+
+    if(!cot || !cot.ofertas.length){
+      return {
+        ...item,
+        fornecedorSelecionado: null,
+        precoUnitario: null,
+        precoTotal: null,
+        status: 'naoEncontrado'
+      };
+    }
+
+    const melhorGeral = [...cot.ofertas].sort((a,b)=>a.precoTotal-b.precoTotal)[0];
+
+    if(item.fornecedorPreferido){
+      const ofertaPreferida = cot.ofertas.find(o => o.fornecedor.toLowerCase() === item.fornecedorPreferido.toLowerCase());
+      if(!ofertaPreferida){
+        return {
+          ...item,
+          fornecedorSelecionado: null,
+          precoUnitario: null,
+          precoTotal: null,
+          status: 'naoEncontrado'
+        };
+      }
+      const status = ofertaPreferida.fornecedor === melhorGeral.fornecedor ? 'selecionado' : 'alternativaPreferida';
+      return {
+        ...item,
+        fornecedorSelecionado: ofertaPreferida.fornecedor,
+        precoUnitario: ofertaPreferida.precoUnitario,
+        precoTotal: ofertaPreferida.precoTotal,
+        status
+      };
+    }
+
+    return {
+      ...item,
+      fornecedorSelecionado: melhorGeral.fornecedor,
+      precoUnitario: melhorGeral.precoUnitario,
+      precoTotal: melhorGeral.precoTotal,
+      status: 'selecionado'
+    };
+  });
+}
+
+/* ==========================================================
+   RENDER: TABS
+   ========================================================== */
+function renderTabs(){
+  const tabsEl = document.getElementById('tabs');
+  const hasPedido = state.pedido.length > 0;
+  const hasCotacao = Object.keys(state.cotacoes).length > 0;
+
+  if(!hasPedido && !hasCotacao){
+    tabsEl.innerHTML = '';
+    return;
+  }
+
+  const tabDefs = [];
+  if(hasPedido) tabDefs.push({id:'pedido', label:'Pedido', count: state.pedido.length});
+  if(hasPedido) tabDefs.push({id:'resultado', label:'Pedido Resultado', count: state.resultadoPedido.length});
+  state.fornecedores.forEach(f => {
+    const count = Object.values(state.cotacoes).filter(c => c.ofertas.some(o=>o.fornecedor===f)).length;
+    tabDefs.push({id:'forn:'+f, label:f, count});
+  });
+
+  if(!state.activeTab || !tabDefs.find(t=>t.id===state.activeTab)){
+    state.activeTab = tabDefs[0].id;
+  }
+
+  tabsEl.innerHTML = tabDefs.map(t => `
+    <div class="tab ${t.id===state.activeTab?'active':''}" data-tab="${t.id}">
+      ${escapeHtml(t.label)} <span class="count">${t.count}</span>
+    </div>
+  `).join('');
+
+  tabsEl.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('click', () => {
+      state.activeTab = el.dataset.tab;
+      renderAll();
+    });
+  });
+}
+
+/* ==========================================================
+   RENDER: STATUS BAR
+   ========================================================== */
+function renderStatusBar(){
+  const bar = document.getElementById('statusBar');
+  const nCot = Object.keys(state.cotacoes).length;
+  const nForn = state.fornecedores.length;
+  const nPed = state.pedido.length;
+
+  if(nCot===0 && nPed===0){
+    bar.textContent = 'Nenhum dado importado ainda. Comece importando uma planilha de cotação.';
+    return;
+  }
+
+  const parts = [];
+  if(nCot>0) parts.push(`<b>${nCot}</b> medicamento(s) cotado(s) por <b>${nForn}</b> fornecedor(es)`);
+  if(nPed>0) parts.push(`<b>${nPed}</b> item(ns) no pedido`);
+  bar.innerHTML = parts.join(' &nbsp;•&nbsp; ');
+}
+
+/* ==========================================================
+   RENDER: MAIN CONTENT POR ABA
+   ========================================================== */
+let filtroTexto = {}; // por aba
+let filtroFornecedorResultado = 'todos';
+let filtroNaoEncontrados = false;
+
+function renderAll(){
+  renderTabs();
+  renderStatusBar();
+  renderWarnings();
+  renderMain();
+  updateExportButton();
+}
+
+function renderWarnings(){
+  // renderizado dentro do main, no topo do conteúdo ativo
+}
+
+function renderMain(){
+  const main = document.getElementById('main');
+  const nCot = Object.keys(state.cotacoes).length;
+  const nPed = state.pedido.length;
+
+  if(nCot===0 && nPed===0){
+    main.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:48px;">📊</div>
+        <h3>Nenhum dado importado</h3>
+        <p>Importe uma planilha de <b>Cotação</b> (preços dos fornecedores) e, opcionalmente, uma planilha de <b>Pedido</b> (o que você precisa comprar).</p>
+      </div>`;
+    return;
+  }
+
+  if(state.activeTab === 'pedido'){
+    main.innerHTML = renderWarningsHtml() + renderPedidoTab();
+    attachPedidoEvents();
+  } else if(state.activeTab === 'resultado'){
+    main.innerHTML = renderWarningsHtml() + renderResultadoTab();
+    attachResultadoEvents();
+  } else if(state.activeTab && state.activeTab.startsWith('forn:')){
+    const fornecedor = state.activeTab.slice(5);
+    main.innerHTML = renderWarningsHtml() + renderFornecedorTab(fornecedor);
+    attachFornecedorEvents(fornecedor);
+  }
+}
+
+function renderWarningsHtml(){
+  if(!state.warnings || !state.warnings.length) return '';
+  return `<div class="alert">
+    <span>⚠️</span>
+    <div>${state.warnings.map(w=>`<div>${escapeHtml(w)}</div>`).join('')}</div>
+    <button class="close-alert" onclick="dismissWarnings()">✕</button>
+  </div>`;
+}
+function dismissWarnings(){ state.warnings = []; renderAll(); }
+
+/* ---------- ABA: PEDIDO ---------- */
+function renderPedidoTab(){
+  if(!state.pedido.length){
+    return `<div class="empty-state"><h3>Nenhum pedido importado</h3><p>Importe a planilha de pedido para ver os itens aqui.</p></div>`;
+  }
+
+  const texto = (filtroTexto['pedido']||'').toLowerCase();
+  let itens = state.resultadoPedido.filter(item =>
+    !texto || item.nome.toLowerCase().includes(texto) || item.ean.includes(texto)
+  );
+  if(filtroNaoEncontrados){
+    itens = itens.filter(i => i.status === 'naoEncontrado');
+  }
+
+  const encontrados = state.resultadoPedido.filter(i=>i.status!=='naoEncontrado').length;
+  const naoEncontrados = state.resultadoPedido.length - encontrados;
+
+  const rows = itens.map(item => `
+    <tr>
+      <td class="mono">${escapeHtml(item.ean)}</td>
+      <td>${escapeHtml(item.nome)}</td>
+      <td class="num">${item.quantidadePedida}</td>
+      <td>${item.fornecedorPreferido ? escapeHtml(item.fornecedorPreferido) : '<span class="badge badge-neutral">Qualquer um</span>'}</td>
+      <td>${item.status==='naoEncontrado'
+            ? '<span class="badge badge-danger">✗ Não encontrado</span>'
+            : '<span class="badge badge-success">✓ Encontrado</span>'}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="summary-cards">
+      <div class="card"><div class="label">Itens no pedido</div><div class="value">${state.pedido.length}</div></div>
+      <div class="card"><div class="label">Encontrados</div><div class="value" style="color:var(--success)">${encontrados}</div></div>
+      <div class="card"><div class="label">Não encontrados</div><div class="value" style="color:var(--danger)">${naoEncontrados}</div></div>
+    </div>
+
+    <div class="controls-row">
+      <div class="search-box"><input type="text" id="searchPedido" placeholder="Buscar por nome ou EAN..." value="${escapeHtml(filtroTexto['pedido']||'')}"></div>
+      <label class="toggle-chip ${filtroNaoEncontrados?'active':''}">
+        <input type="checkbox" id="toggleNaoEncontrados" ${filtroNaoEncontrados?'checked':''}> Mostrar apenas não encontrados
+      </label>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>EAN</th><th>Medicamento</th><th>Qtd. Pedida</th><th>Fornecedor Preferido</th><th>Status</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum item corresponde ao filtro.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function attachPedidoEvents(){
+  const search = document.getElementById('searchPedido');
+  if(search) search.addEventListener('input', e => {
+    filtroTexto['pedido'] = e.target.value;
+    renderMain();
+    document.getElementById('searchPedido').focus();
+    const val = document.getElementById('searchPedido').value;
+    document.getElementById('searchPedido').setSelectionRange(val.length, val.length);
+  });
+  const toggle = document.getElementById('toggleNaoEncontrados');
+  if(toggle) toggle.addEventListener('change', e => {
+    filtroNaoEncontrados = e.target.checked;
+    renderMain();
+  });
+}
+
+/* ---------- ABA: RESULTADO ---------- */
+function renderResultadoTab(){
+  if(!state.pedido.length){
+    return `<div class="empty-state"><h3>Nenhum pedido importado</h3><p>Importe a planilha de pedido para calcular o resultado.</p></div>`;
+  }
+
+  const texto = (filtroTexto['resultado']||'').toLowerCase();
+  let itens = state.resultadoPedido.filter(item => item.status !== 'naoEncontrado');
+  if(texto){
+    itens = itens.filter(i => i.nome.toLowerCase().includes(texto) || i.ean.includes(texto));
+  }
+  if(filtroFornecedorResultado !== 'todos'){
+    itens = itens.filter(i => i.fornecedorSelecionado === filtroFornecedorResultado);
+  }
+
+  const totalGeral = itens.reduce((s,i)=>s+i.precoTotal, 0);
+  const breakdown = {};
+  itens.forEach(i => {
+    breakdown[i.fornecedorSelecionado] = (breakdown[i.fornecedorSelecionado]||0) + i.precoTotal;
+  });
+
+  const rows = itens.map(item => {
+    let statusBadge;
+    if(item.status === 'selecionado'){
+      statusBadge = '<span class="badge badge-success">✓ Selecionado</span>';
+    } else {
+      statusBadge = '<span class="badge badge-warning">⚠ Alternativa preferida</span>';
+    }
+    return `
+      <tr>
+        <td class="mono">${escapeHtml(item.ean)}</td>
+        <td>${escapeHtml(item.nome)}</td>
+        <td class="num">${item.quantidadePedida}</td>
+        <td><b>${escapeHtml(item.fornecedorSelecionado)}</b></td>
+        <td class="num">${formatBRL(item.precoUnitario)}</td>
+        <td class="num">${formatBRL(item.precoTotal)}</td>
+        <td>${statusBadge}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const fornecedorOptions = state.fornecedores.map(f=>`<option value="${escapeHtml(f)}" ${filtroFornecedorResultado===f?'selected':''}>${escapeHtml(f)}</option>`).join('');
+
+  return `
+    <div class="summary-cards">
+      <div class="card highlight"><div class="label">Total do pedido (filtrado)</div><div class="value">${formatBRL(totalGeral)}</div></div>
+      <div class="card"><div class="label">Itens exibidos</div><div class="value">${itens.length}</div></div>
+    </div>
+
+    <div class="controls-row">
+      <div class="search-box"><input type="text" id="searchResultado" placeholder="Buscar por nome ou EAN..." value="${escapeHtml(filtroTexto['resultado']||'')}"></div>
+      <select id="filterFornecedorResultado">
+        <option value="todos" ${filtroFornecedorResultado==='todos'?'selected':''}>Todos os fornecedores</option>
+        ${fornecedorOptions}
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>EAN</th><th>Medicamento</th><th>Qtd</th><th>Fornecedor</th><th>Preço Unit.</th><th>Preço Total</th><th>Status</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum item corresponde ao filtro.</td></tr>'}</tbody>
+      </table>
+      <div class="foot-total">
+        <span>Total geral: ${formatBRL(totalGeral)}</span>
+        <div class="breakdown">
+          ${Object.entries(breakdown).sort((a,b)=>b[1]-a[1]).map(([f,v])=>`<span class="breakdown-chip"><b>${escapeHtml(f)}</b>: ${formatBRL(v)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function attachResultadoEvents(){
+  const search = document.getElementById('searchResultado');
+  if(search) search.addEventListener('input', e => {
+    filtroTexto['resultado'] = e.target.value;
+    renderMain();
+    const el = document.getElementById('searchResultado');
+    if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+  const sel = document.getElementById('filterFornecedorResultado');
+  if(sel) sel.addEventListener('change', e => {
+    filtroFornecedorResultado = e.target.value;
+    renderMain();
+  });
+}
+
+/* ---------- ABA: FORNECEDOR ---------- */
+function renderFornecedorTab(fornecedor){
+  const texto = (filtroTexto['forn:'+fornecedor]||'').toLowerCase();
+
+  const eansNoPedidoUsandoFornecedor = new Set(
+    state.resultadoPedido.filter(i=>i.fornecedorSelecionado===fornecedor).map(i=>i.ean)
+  );
+
+  let produtos = Object.values(state.cotacoes)
+    .filter(c => c.ofertas.some(o=>o.fornecedor===fornecedor))
+    .map(c => {
+      const oferta = c.ofertas.find(o=>o.fornecedor===fornecedor);
+      return {
+        ean: c.ean,
+        nome: c.nome,
+        quantidade: oferta.quantidade,
+        precoUnitario: oferta.precoUnitario,
+        precoTotal: oferta.precoTotal,
+        noPedido: eansNoPedidoUsandoFornecedor.has(c.ean)
+      };
+    });
+
+  if(texto){
+    produtos = produtos.filter(p => p.nome.toLowerCase().includes(texto) || p.ean.includes(texto));
+  }
+
+  const totalFornecedor = produtos.reduce((s,p)=>s+p.precoTotal,0);
+  const usadosNoPedido = produtos.filter(p=>p.noPedido).length;
+
+  const rows = produtos.map(p => `
+    <tr>
+      <td class="mono">${escapeHtml(p.ean)}</td>
+      <td>${escapeHtml(p.nome)}</td>
+      <td class="num">${p.quantidade}</td>
+      <td class="num">${formatBRL(p.precoUnitario)}</td>
+      <td class="num">${formatBRL(p.precoTotal)}</td>
+      <td>${p.noPedido ? '<span class="badge badge-success">✓ Usado no pedido</span>' : '<span class="badge badge-neutral">✗ Não usado</span>'}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="summary-cards">
+      <div class="card"><div class="label">Total ${escapeHtml(fornecedor)}</div><div class="value">${formatBRL(totalFornecedor)}</div></div>
+      <div class="card"><div class="label">Produtos cotados</div><div class="value">${produtos.length}</div></div>
+      <div class="card"><div class="label">Usados no pedido</div><div class="value" style="color:var(--success)">${usadosNoPedido}</div></div>
+    </div>
+
+    <div class="controls-row">
+      <div class="search-box"><input type="text" id="searchForn" placeholder="Buscar por nome ou EAN..." value="${escapeHtml(filtroTexto['forn:'+fornecedor]||'')}"></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>EAN</th><th>Medicamento</th><th>Qtd</th><th>Preço Unit.</th><th>Preço Total</th><th>No Pedido?</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum item corresponde ao filtro.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function attachFornecedorEvents(fornecedor){
+  const search = document.getElementById('searchForn');
+  if(search) search.addEventListener('input', e => {
+    filtroTexto['forn:'+fornecedor] = e.target.value;
+    renderMain();
+    const el = document.getElementById('searchForn');
+    if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+}
+
+/* ==========================================================
+   EXPORTAÇÃO
+   ========================================================== */
+function updateExportButton(){
+  const btn = document.getElementById('btnExport');
+  const nCot = Object.keys(state.cotacoes).length;
+  btn.disabled = (nCot===0 && state.pedido.length===0);
+}
+
+function exportarAbaAtual(){
+  let data = [];
+  let filename = 'export.csv';
+
+  if(state.activeTab === 'pedido'){
+    data = state.resultadoPedido.map(i => ({
+      EAN: i.ean, NOME: i.nome, QUANTIDADE: i.quantidadePedida,
+      FORNECEDOR_PREFERIDO: i.fornecedorPreferido||'', STATUS: i.status==='naoEncontrado'?'Não encontrado':'Encontrado'
+    }));
+    filename = 'pedido.csv';
+  } else if(state.activeTab === 'resultado'){
+    data = state.resultadoPedido.filter(i=>i.status!=='naoEncontrado').map(i => ({
+      EAN: i.ean, NOME: i.nome, QUANTIDADE: i.quantidadePedida,
+      FORNECEDOR: i.fornecedorSelecionado, PRECO_UNITARIO: i.precoUnitario, PRECO_TOTAL: i.precoTotal,
+      STATUS: i.status
+    }));
+    filename = 'pedido_resultado.csv';
+  } else if(state.activeTab && state.activeTab.startsWith('forn:')){
+    const fornecedor = state.activeTab.slice(5);
+    data = Object.values(state.cotacoes)
+      .filter(c => c.ofertas.some(o=>o.fornecedor===fornecedor))
+      .map(c => {
+        const o = c.ofertas.find(o=>o.fornecedor===fornecedor);
+        return { EAN:c.ean, NOME:c.nome, QUANTIDADE:o.quantidade, PRECO_UNITARIO:o.precoUnitario, PRECO_TOTAL:o.precoTotal };
+      });
+    filename = fornecedor.replace(/[^a-z0-9]/gi,'_') + '.csv';
+  }
+
+  if(!data.length){
+    alert('Não há dados para exportar nessa aba.');
+    return;
+  }
+
+  const headers = Object.keys(data[0]);
+  const csvRows = [headers.join(';')];
+  data.forEach(row => {
+    csvRows.push(headers.map(h => {
+      let v = row[h];
+      if(typeof v === 'number') v = String(v).replace('.',',');
+      return `"${String(v??'').replace(/"/g,'""')}"`;
+    }).join(';'));
+  });
+  const csv = '\uFEFF' + csvRows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ==========================================================
+   LIMPAR DADOS
+   ========================================================== */
+function clearAllData(){
+  state.cotacoes = {};
+  state.fornecedores = [];
+  state.pedido = [];
+  state.resultadoPedido = [];
+  state.activeTab = null;
+  state.warnings = [];
+  filtroTexto = {};
+  filtroFornecedorResultado = 'todos';
+  filtroNaoEncontrados = false;
+  localStorage.removeItem(STORAGE_KEY);
+  renderAll();
+}
+
+/* ==========================================================
+   EVENT LISTENERS INICIAIS
+   ========================================================== */
+document.getElementById('fileCotacao').addEventListener('change', e => {
+  if(e.target.files[0]) handleImportCotacao(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('filePedido').addEventListener('change', e => {
+  if(e.target.files[0]) handleImportPedido(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btnExport').addEventListener('click', exportarAbaAtual);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.add('active');
+});
+document.getElementById('cancelClear').addEventListener('click', () => {
+  document.getElementById('confirmModal').classList.remove('active');
+});
+document.getElementById('confirmClear').addEventListener('click', () => {
+  clearAllData();
+  document.getElementById('confirmModal').classList.remove('active');
+});
+
+/* ==========================================================
+   INIT
+   ========================================================== */
+loadState();
+recalcularResultadoPedido();
+renderAll();
+</script>
+
+</body>
+</html>
