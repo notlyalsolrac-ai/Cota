@@ -570,7 +570,7 @@ async function handleImportPedido(file){
   }
 
   const sample = rows[0];
-  const kEan = findKey(sample, ['EAN', 'CODIFICACAO', 'CODIGO', 'CÓDIGO', 'GTIN']);
+  const kEan = findKey(sample, ['EAN']) || findKey(sample, ['CODIFICACAO', 'CODIFICAÇÃO']);
   const kNome = findKey(sample, ['NOME', 'MEDICAMENTO', 'PRODUTO', 'NOME DO PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']);
   const kQtd = findKey(sample, ['QUANTIDADE', 'QTD', 'QTDE']);
   const kFornPref = findKey(sample, ['FORNECEDOR PREFERIDO', 'FORNECEDOR_PREFERIDO', 'FORNECEDOR PREF', 'FORNECEDOR', 'FABRICANTE', 'MARCA']);
