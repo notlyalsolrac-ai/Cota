@@ -569,19 +569,19 @@ async function handleImportPedido(file){
     return;
   }
 
-  const sample = rows[0];
-  const kEan = findKey(sample, ['EAN']) || findKey(sample, ['CODIFICACAO', 'CODIFICAÇÃO']);
-  const kNome = findKey(sample, ['NOME', 'MEDICAMENTO', 'PRODUTO', 'NOME DO PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']);
-  const kQtd = findKey(sample, ['QUANTIDADE', 'QTD', 'QTDE']);
-  const kFornPref = findKey(sample, ['FORNECEDOR PREFERIDO', 'FORNECEDOR_PREFERIDO', 'FORNECEDOR PREF', 'FORNECEDOR', 'FABRICANTE', 'MARCA']);
+  // Detecta automaticamente as colunas relevantes
+  const likelyEanCol = Object.keys(rows[0]).find(k => /^\\d{8,14}$/.test(rows[0][k]));
+  const likelyNomeCol = Object.keys(rows[0]).sort((a,b) => rows[0][b].length - rows[0][a].length)[0];
+  const likelyQtdCol = Object.keys(rows[0]).find(k => Number.isInteger(Number(rows[0][k])) && Number(rows[0][k]) > 0);
+  const likelyFornCol = Object.keys(rows[0]).find(k => /^[A-Za-z\\s]+$/.test(rows[0][k]));
 
-  const missing = [];
-  if(!kEan) missing.push('EAN');
-  if(!kNome) missing.push('NOME');
-  if(!kQtd) missing.push('QUANTIDADE');
+  const kEan = likelyEanCol;
+  const kNome = likelyNomeCol;  
+  const kQtd = likelyQtdCol;
+  const kFornPref = likelyFornCol;
 
-  if(missing.length){
-    alert('A planilha de pedido está sem as colunas obrigatórias: ' + missing.join(', '));
+  if(!kEan || !kNome || !kQtd){
+    alert('Não foi possível detectar automaticamente as colunas necessárias (código do produto, nome, quantidade). Verifique se a planilha contém essas informações.');
     return;
   }
 
