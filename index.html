@@ -225,9 +225,9 @@
 </header>
 
 <div class="toolbar">
-  <label class="btn btn-primary" for="fileCotacao">📤 Importar Cotação</label>
+  <label class="btn btn-primary" for="fileCotacao">📤 Tabela Fornecedor</label>
   <input type="file" id="fileCotacao" accept=".xlsx,.xls">
-  <label class="btn btn-primary" for="filePedido">📋 Importar Pedido</label>
+  <label class="btn btn-primary" for="filePedido">📋 Tabela de Pedido</label>
   <input type="file" id="filePedido" accept=".xlsx,.xls">
   <button class="btn" id="btnExport" disabled>💾 Exportar aba atual</button>
   <button class="btn btn-danger" id="btnClear">🗑️ Limpar dados</button>
@@ -622,18 +622,14 @@ async function handleImportCotacao(file){
     : extractFornecedorFromFilename(file.name);
 
   openMappingModal({
-    title: 'Importar cotação',
-    intro: `Detectei ${dataRows.length} linhas de dados começando na linha ${headerIdx+2}. Confira o mapeamento das colunas:`,
+    title: 'Importar tabela do fornecedor',
+    intro: `Detectei ${dataRows.length} linhas de dados. Confira as colunas de EAN, Descrição e Preço:`,
     headers, dataRows,
     fields: [
-      { key:'ean', label:'Coluna do EAN', required:false },
-      { key:'codigo', label:'Coluna do código interno (opcional)', required:false },
-      { key:'nome', label:'Coluna do nome/descrição do produto', required:true },
-      { key:'quantidade', label:'Coluna da quantidade (deixe vazio se não houver)', required:false },
-      { key:'precoUnit', label:'Coluna do preço unitário', required:false },
-      { key:'precoTotal', label:'Coluna do preço total', required:false },
-      { key:'fornecedor', label:'Coluna do fornecedor (deixe vazio para usar o nome abaixo)', required:false },
-      { key:'nomeFornecedor', label:'Nome do fornecedor (usado se não houver coluna)', type:'text', placeholder:'Ex: EMS', required:false }
+      { key:'ean', label:'EAN', required:true },
+      { key:'nome', label:'Descrição', required:true },
+      { key:'precoUnit', label:'Preço', required:true },
+      { key:'nomeFornecedor', label:'Nome do fornecedor', type:'text', placeholder:'Ex: EMS', required:true }
     ],
     defaults: { ...autoMap, nomeFornecedor: fornecedorSugerido },
     onConfirm: (mapping) => processarCotacao(headers, dataRows, mapping)
@@ -641,51 +637,28 @@ async function handleImportCotacao(file){
 }
 
 function processarCotacao(headers, dataRows, mapping){
-  if(mapping.nome === null){
-    alert('É obrigatório selecionar a coluna do nome do produto.');
-    return;
-  }
-  if(mapping.ean === null && mapping.codigo === null){
-    alert('É obrigatório ter pelo menos uma coluna de identificação (EAN ou código interno).');
-    return;
-  }
-  if(mapping.precoUnit === null && mapping.precoTotal === null){
-    alert('É obrigatório ter pelo menos uma coluna de preço (unitário ou total).');
-    return;
-  }
+  if(mapping.ean === null){ alert('Selecione a coluna do EAN.'); return; }
+  if(mapping.nome === null){ alert('Selecione a coluna da descrição.'); return; }
+  if(mapping.precoUnit === null){ alert('Selecione a coluna do preço.'); return; }
 
-  const fornecedorFixo = mapping.fornecedor === null ? (mapping.nomeFornecedor || 'Fornecedor').trim() : null;
-  if(mapping.fornecedor === null && !fornecedorFixo){
-    alert('Informe o nome do fornecedor ou selecione uma coluna de fornecedor.');
-    return;
-  }
+  const fornecedor = (mapping.nomeFornecedor || '').trim();
+  if(!fornecedor){ alert('Informe o nome do fornecedor.'); return; }
 
   let novasOfertas = 0, duplicatas = 0, invalidas = 0;
   const fornecedoresSet = new Set(state.fornecedores);
 
   for(const row of dataRows){
-    // Identificação: EAN preferido; se não tiver, usa código interno
-    const eanRaw = mapping.ean !== null ? String(row[mapping.ean]||'').trim() : '';
-    const codigoRaw = mapping.codigo !== null ? String(row[mapping.codigo]||'').trim() : '';
-    const ean = eanRaw.replace(/\D/g,'') || codigoRaw;
+    const eanRaw = String(row[mapping.ean]||'').trim();
+    const ean = eanRaw.replace(/\D/g,'');
     const nome = String(row[mapping.nome]||'').trim();
-    if(!ean || !nome){ invalidas++; continue; }
+    const precoUnitario = toNumber(row[mapping.precoUnit]);
 
-    const fornecedor = fornecedorFixo || String(row[mapping.fornecedor]||'').trim();
-    if(!fornecedor){ invalidas++; continue; }
+    if(!ean || !nome || precoUnitario === null){ invalidas++; continue; }
 
-    let quantidade = mapping.quantidade !== null ? toNumber(row[mapping.quantidade]) : 1;
-    if(!quantidade || quantidade <= 0) quantidade = 1; // default se não houver
-
-    let precoUnitario = mapping.precoUnit !== null ? toNumber(row[mapping.precoUnit]) : null;
-    let precoTotal = mapping.precoTotal !== null ? toNumber(row[mapping.precoTotal]) : null;
-
-    if(precoTotal === null && precoUnitario !== null){
-      precoTotal = precoUnitario * quantidade;
-    } else if(precoUnitario === null && precoTotal !== null){
-      precoUnitario = precoTotal / quantidade;
-    }
-    if(precoTotal === null || precoUnitario === null){ invalidas++; continue; }
+    // Preço total é calculado com base na quantidade pedida na hora do matching
+    // Aqui armazenamos quantidade = 1 e precoTotal = precoUnitario por padrão
+    const quantidade = 1;
+    const precoTotal = precoUnitario;
 
     if(!state.cotacoes[ean]){
       state.cotacoes[ean] = { ean, nome, ofertas: [] };
@@ -896,7 +869,7 @@ function renderMain(){
     main.innerHTML = `<div class="empty-state">
       <div style="font-size:48px;">📊</div>
       <h3>Nenhum dado importado</h3>
-      <p>Importe suas planilhas de <b>Cotação</b> (uma por fornecedor) e uma planilha de <b>Pedido</b>.</p>
+      <p>Importe a <b>Tabela do Fornecedor</b> (uma por vez, para cada fornecedor) e depois a <b>Tabela de Pedido</b>.</p>
     </div>`;
     return;
   }
@@ -1061,20 +1034,17 @@ function renderFornecedorTab(fornecedor){
     .filter(c => c.ofertas.some(o=>o.fornecedor===fornecedor))
     .map(c => {
       const o = c.ofertas.find(o=>o.fornecedor===fornecedor);
-      return { ean:c.ean, nome:c.nome, quantidade:o.quantidade, precoUnitario:o.precoUnitario, precoTotal:o.precoTotal, noPedido:eansNoPedido.has(c.ean) };
+      return { ean:c.ean, nome:c.nome, precoUnitario:o.precoUnitario, noPedido:eansNoPedido.has(c.ean) };
     });
   if(texto) produtos = produtos.filter(p => p.nome.toLowerCase().includes(texto) || p.ean.includes(texto));
 
-  const totalForn = produtos.reduce((s,p)=>s+p.precoTotal,0);
   const usados = produtos.filter(p=>p.noPedido).length;
 
   const rows = produtos.map(p => `
     <tr>
       <td class="mono">${escapeHtml(p.ean)}</td>
       <td>${escapeHtml(p.nome)}</td>
-      <td class="num">${p.quantidade}</td>
       <td class="num">${formatBRL(p.precoUnitario)}</td>
-      <td class="num">${formatBRL(p.precoTotal)}</td>
       <td>${p.noPedido ? '<span class="badge badge-success">✓ No pedido</span>' : '<span class="badge badge-neutral">Não usado</span>'}</td>
     </tr>`).join('');
 
@@ -1085,11 +1055,12 @@ function renderFornecedorTab(fornecedor){
     </div>
     <div class="controls-row">
       <div class="search-box"><input type="text" id="searchForn" placeholder="Buscar..." value="${escapeHtml(filtroTexto['forn:'+fornecedor]||'')}"></div>
+      <button class="btn btn-danger" id="btnRemoveForn">🗑️ Excluir tabela ${escapeHtml(fornecedor)}</button>
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Código</th><th>Medicamento</th><th>Qtd</th><th>Preço Unit.</th><th>Preço Total</th><th>Status</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">Sem itens.</td></tr>'}</tbody>
+        <thead><tr><th>EAN</th><th>Descrição</th><th>Preço</th><th>Status</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted)">Sem itens.</td></tr>'}</tbody>
       </table>
     </div>`;
 }
@@ -1101,6 +1072,30 @@ function attachFornecedorEvents(f){
     const el = document.getElementById('searchForn');
     if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   });
+  const btn = document.getElementById('btnRemoveForn');
+  if(btn) btn.addEventListener('click', () => {
+    if(confirm(`Tem certeza que deseja excluir toda a tabela do fornecedor "${f}"?\n\nEssa ação não pode ser desfeita.`)){
+      removerFornecedor(f);
+    }
+  });
+}
+
+function removerFornecedor(fornecedor){
+  // Remove ofertas desse fornecedor de cada produto
+  for(const ean of Object.keys(state.cotacoes)){
+    state.cotacoes[ean].ofertas = state.cotacoes[ean].ofertas.filter(o => o.fornecedor !== fornecedor);
+    // Se o produto ficou sem ofertas, remove o produto
+    if(state.cotacoes[ean].ofertas.length === 0){
+      delete state.cotacoes[ean];
+    }
+  }
+  // Remove da lista de fornecedores
+  state.fornecedores = state.fornecedores.filter(f => f !== fornecedor);
+  // Muda para outra aba
+  state.activeTab = null;
+  recalcularResultadoPedido();
+  saveState();
+  renderAll();
 }
 
 /* ==========================================================
